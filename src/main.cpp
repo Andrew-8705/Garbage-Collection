@@ -1,18 +1,8 @@
-/**
- * @file main.cpp
- * @brief Основной файл программы "Hello World".
- */
-
-
 #include <iostream>
+#include "config.hpp"
 
-/**
- * @brief Главная функция программы.
- * * * Эта функция является точкой входа в программу. 
- * * Она просто выводит приветственное сообщение в консоль.
- * * @return int Возвращает 0 при успешном завершении.
- */
 int main()
 {
-    std::cout << "Hello world!" << '\n';
+    int* ptr = new int(42);
+    delete ptr;
 }

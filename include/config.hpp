@@ -1,5 +1,7 @@
 #include <cstddef>
 #include <string>
+#include <new>
+#include <iostream>
 
 
 namespace gc {
