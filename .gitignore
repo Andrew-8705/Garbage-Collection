@@ -45,3 +45,6 @@ build/
 
 # Doxygen generated documentation
 docs/
+
+# Игнорировать конфигурационные файлы VS Code
+.vscode/
