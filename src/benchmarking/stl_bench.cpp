@@ -8,11 +8,11 @@
 #include <chrono>
 
 #include "abstract_container.hpp"
+#include "logger.hpp"
 
-
-const int POOL_SIZE = 500;
-const int CHUNK_SIZE = 200;
-const int TOTAL_OPERATIONS = 1;
+const int POOL_SIZE = 1; // сколько контейнеров будет создано
+const int CHUNK_SIZE = 200; // сколько элементов будет добавлено в контейнер
+const int TOTAL_OPERATIONS = 1; // сколько операций для выбранного контейнера будет выполнено
 
 namespace gc {
 
@@ -144,11 +144,32 @@ int main() {
     for (int i = 0; i < POOL_SIZE; i++) {
         int type = type_dist(gen);
         switch (type) {
-            case 0: pool.push_back(std::make_unique<gc::VectorContainer>());
-            case 1: pool.push_back(std::make_unique<gc::ListContainer>());
-            case 2: pool.push_back(std::make_unique<gc::MapContainer>());
-            case 3: pool.push_back(std::make_unique<gc::UnorderedMapContainer>());
-            case 4: pool.push_back(std::make_unique<gc::StringContainer>());
+            case 0: { 
+                pool.push_back(std::make_unique<gc::VectorContainer>());
+                Logger::getInstance().log("Vector");
+                break;
+            }
+            case 1: {
+                pool.push_back(std::make_unique<gc::ListContainer>());
+                Logger::getInstance().log("List");
+                break;
+            }
+            case 2: {
+                pool.push_back(std::make_unique<gc::MapContainer>());
+                Logger::getInstance().log("Map");
+                break;
+            }
+            case 3: {
+                pool.push_back(std::make_unique<gc::UnorderedMapContainer>());
+                Logger::getInstance().log("UnorderedMap");
+                break;
+            }
+            case 4: {
+                pool.push_back(std::make_unique<gc::StringContainer>());
+                Logger::getInstance().log("String");
+                break;
+            }
+            default: break;
         }
     }
     
