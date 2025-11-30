@@ -10,9 +10,11 @@
 #include "abstract_container.hpp"
 #include "logger.hpp"
 
-const int POOL_SIZE = 1; // сколько контейнеров будет создано
-const int CHUNK_SIZE = 200; // сколько элементов будет добавлено в контейнер
-const int TOTAL_OPERATIONS = 1; // сколько операций для выбранного контейнера будет выполнено
+//#define ENABLE_POOL_LOGGING
+
+const int POOL_SIZE = 500;       // сколько контейнеров будет создано
+const int CHUNK_SIZE = 200;      // сколько элементов будет добавлено в контейнер
+const int TOTAL_OPERATIONS = 50; // сколько операций для выбранного контейнера будет выполнено
 
 namespace gc {
 
@@ -131,6 +133,7 @@ public:
 
 
 int main() {
+    Logger::getInstance();
     std::srand(std::time(0));
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -146,27 +149,37 @@ int main() {
         switch (type) {
             case 0: { 
                 pool.push_back(std::make_unique<gc::VectorContainer>());
+                #ifdef ENABLE_POOL_LOGGING
                 Logger::getInstance().log("Vector");
+                #endif
                 break;
             }
             case 1: {
                 pool.push_back(std::make_unique<gc::ListContainer>());
+                #ifdef ENABLE_POOL_LOGGING
                 Logger::getInstance().log("List");
+                #endif
                 break;
             }
             case 2: {
                 pool.push_back(std::make_unique<gc::MapContainer>());
+                #ifdef ENABLE_POOL_LOGGING
                 Logger::getInstance().log("Map");
+                #endif
                 break;
             }
             case 3: {
                 pool.push_back(std::make_unique<gc::UnorderedMapContainer>());
+                #ifdef ENABLE_POOL_LOGGING
                 Logger::getInstance().log("UnorderedMap");
+                #endif
                 break;
             }
             case 4: {
                 pool.push_back(std::make_unique<gc::StringContainer>());
+                #ifdef ENABLE_POOL_LOGGING
                 Logger::getInstance().log("String");
+                #endif
                 break;
             }
             default: break;
