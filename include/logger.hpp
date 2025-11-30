@@ -7,28 +7,42 @@
 
 class Logger {
 public:
-    static Logger& getInstance(const std::string& filepath = "./results/log.txt") {
+    static Logger& getInstance(const char* filepath = "./results/data/log.txt") {
         static Logger instance(filepath);
         return instance;
     }
 
-    void log(const std::string& message) {
+    void log(const char* message) {
         std::lock_guard<std::mutex> lock(mtx);
-        out << message << '\n';
+        if (file) {
+            std::fprintf(file, "%s\n", message);
+        }
+    }
+
+    void log(long long value) {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (file) {
+            std::fprintf(file, "%lld\n", value);
+        }
     }
 
     Logger(const Logger&) = delete;
     Logger& operator= (const Logger&) = delete;
 
 private:
-    explicit Logger(const std::string& filepath) : out(filepath, std::ios::app) {
-        if (!out.is_open()) {
-            throw std::runtime_error("Cant open the log file: " + filepath);
+    explicit Logger(const char* filepath) {
+        file = std::fopen(filepath, "a");
+        if (!file) {
+            std::fprintf(stderr, "CRITICAL ERROR: Cant open log file: %s\n", filepath);
         }
     }
 
-    ~Logger() { out.close(); }
+    ~Logger() { 
+        if (file) {
+            std::fclose(file); 
+        }
+    }
 
-    std::ofstream out;
+    std::FILE* file = nullptr;
     std::mutex mtx;
 }; 
