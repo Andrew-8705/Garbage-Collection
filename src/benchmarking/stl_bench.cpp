@@ -8,9 +8,15 @@
 #include <chrono>
 
 #include "abstract_container.hpp"
+#include "gc_allocator.hpp"
 #include "logger.hpp"
 
-//#define ENABLE_POOL_LOGGING
+#include "ReferenceCountingGC.hpp"
+
+#ifdef HAS_BDWGC
+#include "BoehmGCAdapter.hpp"
+#endif
+
 
 const int POOL_SIZE = 500;       // сколько контейнеров будет создано
 const int CHUNK_SIZE = 200;      // сколько элементов будет добавлено в контейнер
@@ -18,12 +24,30 @@ const int TOTAL_OPERATIONS = 50; // сколько операций для вы�
 
 namespace gc {
 
+using GCString = std::basic_string<char, std::char_traits<char>, gc::Allocator<char>>;
+
+template <typename T>
+using GCVector = std::vector<T, gc::Allocator<T>>;
+
+template <typename T>
+using GCList = std::list<T, gc::Allocator<T>>;
+
+template <typename K, typename V>
+using GCMap = std::map<K, V, std::less<K>, gc::Allocator<std::pair<const K, V>>>;
+
+template <typename K, typename V>
+using GCUnorderedMap = std::unordered_map<K, V, std::hash<K>, std::equal_to<K>, gc::Allocator<std::pair<const K, V>>>;
+
+// ---------------------------------------------------------
+
 class VectorContainer : public AbstractContainer {
 private:
-    std::vector<std::string> data;
+    GCVector<GCString> data;
 public:
     void grow() override {
-        for (int i = 0; i < CHUNK_SIZE; i++) data.push_back("x" + std::to_string(i));
+        for (int i = 0; i < CHUNK_SIZE; i++) {
+            data.push_back(GCString("x") + GCString(std::to_string(i).c_str()));
+        }
     }
 
     void shrink() override {
@@ -31,37 +55,47 @@ public:
     }
 
     void access() override {
-        if (!data.empty()) const std::string& val = data[rand() % data.size()];
+        if (!data.empty()) {
+            const GCString& val = data[rand() % data.size()];
+            (void)val;
+        }
     }
+
+    const char* getName() const override { return "VectorContainer"; }
 };
 
 class ListContainer : public AbstractContainer {
 private:
-    std::list<int> data;
+    GCList<int> data;
 public:
     void grow() override {
-        for (int i = 0; i < CHUNK_SIZE; i++) data.push_back(i);
+        for (int i = 0; i < CHUNK_SIZE; i++) 
+            data.push_back(i);
     }
 
     void shrink() override {
-        for (int i = 0; i < CHUNK_SIZE / 2 && !data.empty(); i++) data.pop_back();
+        for (int i = 0; i < CHUNK_SIZE / 2 && !data.empty(); i++) 
+            data.pop_back();
     }
 
     void access() override {
         if (!data.empty()) {
             volatile int val = *std::next(data.begin(), rand() % data.size());
+            (void)val;
         }
     }
+
+    const char* getName() const override { return "ListContainer"; }
 };
 
 class MapContainer : public AbstractContainer {
 private:
-    std::map<int, std::string> data;
+    std::map<int, GCString> data;
     int next_key = 0;
 public: 
     void grow() override {
         for (int i = 0; i < CHUNK_SIZE; i++) {
-            data[next_key++] = "map_val" + std::to_string(i);
+            data[next_key++] = GCString("map_val") + GCString(std::to_string(i).c_str());
         }
     }
 
@@ -73,9 +107,14 @@ public:
 
     void access() override {
         if (!data.empty()) {
-            auto it = data.find(rand() % next_key);
+            if (next_key > 0) {
+                 auto it = data.find(rand() % next_key);
+                 (void)it;
+            }
         }
     }
+
+    const char* getName() const override { return "MapContainer"; }
 };
 
 class UnorderedMapContainer : public AbstractContainer {
@@ -97,20 +136,25 @@ public:
 
     void access() override {
         if (!data.empty()) {
-            auto it = data.find(rand() % next_key);
+             if (next_key > 0) {
+                auto it = data.find(rand() % next_key);
+                (void)it;
+             }
         }
     }
+
+    const char* getName() const override { return "UnorderedMapContainer"; }
 };
 
 
 class StringContainer : public AbstractContainer {
 private:
-    std::string data;
+    GCString data;
     const size_t APPEND_SIZE = 100;
 public:
     void grow() override {
         for (int i = 0; i < 5; ++i) { 
-            data += std::string(APPEND_SIZE, ' ');
+            data += GCString(APPEND_SIZE, ' ');
         }
     }
 
@@ -125,14 +169,27 @@ public:
     void access() override {
         if (!data.empty()) {
             char c = data[0];
+            (void)c;
         }
     }
+
+    const char* getName() const override { return "StringContainer"; }
 };
 
 }
 
 
 int main() {
+    static gc::ReferenceCountingGC rc_gc_instance;
+
+// #ifdef HAS_BDWGC
+//     static gc::BoehmGCAdapter gc_instance;
+// #else
+//     static gc::ReferenceCountingGC gc_instance;
+//     std::cout << "[WARNING] Boehm GC not compiled, falling back to RC.\n";
+// #endif
+    gc::MemoryManager::setInstance(&rc_gc_instance);
+
     Logger::getInstance();
     std::srand(std::time(0));
     std::random_device rd;
@@ -149,37 +206,27 @@ int main() {
         switch (type) {
             case 0: { 
                 pool.push_back(std::make_unique<gc::VectorContainer>());
-                #ifdef ENABLE_POOL_LOGGING
-                Logger::getInstance().log("Vector");
-                #endif
+                Logger::getInstance().log("Created: VectorContainer"); 
                 break;
             }
             case 1: {
                 pool.push_back(std::make_unique<gc::ListContainer>());
-                #ifdef ENABLE_POOL_LOGGING
-                Logger::getInstance().log("List");
-                #endif
+                Logger::getInstance().log("Created: ListContainer");
                 break;
             }
             case 2: {
                 pool.push_back(std::make_unique<gc::MapContainer>());
-                #ifdef ENABLE_POOL_LOGGING
-                Logger::getInstance().log("Map");
-                #endif
+                Logger::getInstance().log("Created: MapContainer");
                 break;
             }
             case 3: {
                 pool.push_back(std::make_unique<gc::UnorderedMapContainer>());
-                #ifdef ENABLE_POOL_LOGGING
-                Logger::getInstance().log("UnorderedMap");
-                #endif
+                Logger::getInstance().log("Created: UnorderedMapContainer");
                 break;
             }
             case 4: {
                 pool.push_back(std::make_unique<gc::StringContainer>());
-                #ifdef ENABLE_POOL_LOGGING
-                Logger::getInstance().log("String");
-                #endif
+                Logger::getInstance().log("Created: StringContainer");
                 break;
             }
             default: break;
@@ -187,29 +234,36 @@ int main() {
     }
     
     std::cout << "--- STL WORKLOAD BENCHMARK ---" << std::endl;
-    //std::cout << "Allocator state before workload:" << std::endl;
 
     auto start = std::chrono::high_resolution_clock::now();
 
     // 2. Главный цикл рандомизированных операций
     for (int i = 0; i < TOTAL_OPERATIONS; i++) {
-        gc::AbstractContainer* target = pool[pool_dist(gen)].get();
+        int target_idx = pool_dist(gen);
+        gc::AbstractContainer* target = pool[target_idx].get();
         int op_type = op_dist(gen);
+        
+        const char* op_name = "";
 
         if (op_type == 0) {
+            op_name = "GROW";
             target->grow();
         } else if (op_type == 1) {
+            op_name = "SHRINK";
             target->shrink();
         } else {
+            op_name = "ACCESS";
             target->access();
         }
+
+        Logger::getInstance().logFormatted("Op #%d: [%s] %s at index %d",  i, target->getName(), op_name, target_idx);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
     std::cout << "\nWorkload finished. Total time: " << duration.count() << " ms." << std::endl;
-    //std::cout << "Allocator state after workload:" << std::endl;
+    gc::MemoryManager::getInstance()->printSummary();
 
     return 0;
 }
