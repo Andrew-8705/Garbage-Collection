@@ -7,6 +7,65 @@
 #include <iostream>
 #include <cstdarg>
 
+class LogChannel {
+public:
+    LogChannel(const char* filename, const char* header = nullptr) {
+        file = std::fopen(filename, "w");
+        if (file) {
+            if (header) {
+                std::fprintf(file, "%s\n", header);
+                std::fflush(file);
+            }
+        } else {
+            std::cerr << "[Logger] CRITICAL ERROR: Cant open " << filename << "\n";
+        }
+    }
+
+    ~LogChannel() {
+        if (file) std::fclose(file);
+    }
+
+    void write(const char* format, ...) {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (!file) return;
+
+        auto now = std::chrono::steady_clock::now();
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+
+        std::fprintf(file, "%lld,", us);
+
+        va_list args;
+        va_start(args, format);
+        std::vfprintf(file, format, args);
+        va_end(args);
+
+        std::fprintf(file, "\n");
+    }
+    
+
+    void writeText(const char* format, ...) {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (!file) return;
+
+        auto now = std::chrono::steady_clock::now();
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+
+        std::fprintf(file, "[%lld] ", us);
+
+        va_list args;
+        va_start(args, format);
+        std::vfprintf(file, format, args);
+        va_end(args);
+
+        std::fprintf(file, "\n");
+        std::fflush(file);
+    }
+
+private:
+    std::FILE* file = nullptr;
+    std::mutex mtx;
+};
+
 class Logger {
 public:
     static Logger& getInstance() {
@@ -16,91 +75,48 @@ public:
 
     // --- Канал 1: Метрики памяти (CSV) ---
     void logAlloc(size_t size, void* ptr) {
-        std::lock_guard<std::mutex> lock(csv_mtx);
-        if (csv_file) {
-            auto us = getCurrentTimeUs();
-            std::fprintf(csv_file, "%lld,ALLOC,%zu,%p\n", us, size, ptr);
-        }
+        // Формат: TIMESTAMP,ALLOC,size,ptr
+        memoryChannel.write("ALLOC,%zu,%p", size, ptr);
     }
 
     void logFree(void* ptr) {
-        std::lock_guard<std::mutex> lock(csv_mtx);
-        if (csv_file) {
-            auto us = getCurrentTimeUs();
-            std::fprintf(csv_file, "%lld,FREE,0,%p\n", us, ptr);
-        }
+        memoryChannel.write("FREE,0,%p", ptr);
     }
 
-    // --- Канал 2: Информационный лог (TXT) ---
+    // --- Канал 2: Граф (CSV) ---
+    void logGraphEvent(const char* event, int id1, int id2 = -1) {
+        graphChannel.write("%s,%d,%d", event, id1, id2);
+    }
+
+    // --- Канал 3: Текстовый лог ---
     void log(const char* message) {
-        std::lock_guard<std::mutex> lock(text_mtx);
-        
-
-        if (text_file) {
-            auto us = getCurrentTimeUs();
-            std::fprintf(text_file, "[%lld] %s\n", us, message);
-            std::fflush(text_file);
-        }
-    }
-
-    void log(const char* prefix, int value) {
-        std::lock_guard<std::mutex> lock(text_mtx);
-        if (text_file) {
-            auto us = getCurrentTimeUs();
-            std::fprintf(text_file, "[%lld] %s: %d\n", us, prefix, value);
-            std::fflush(text_file);
-        }
+        textChannel.writeText("%s", message);
     }
 
     void logFormatted(const char* format, ...) {
-    std::lock_guard<std::mutex> lock(text_mtx);
-    if (text_file) {
-        auto us = getCurrentTimeUs();
-        std::fprintf(text_file, "[%lld] ", us);
-        
+        char buffer[1024];
         va_list args;
         va_start(args, format);
-        std::vfprintf(text_file, format, args);
+        std::vsnprintf(buffer, sizeof(buffer), format, args);
         va_end(args);
         
-        std::fprintf(text_file, "\n");
-        std::fflush(text_file);
+        textChannel.writeText("%s", buffer);
     }
-}
 
     Logger(const Logger&) = delete;
     Logger& operator= (const Logger&) = delete;
 
 private:
-    Logger() {
-        // 1. Файл для графиков
-        csv_file = std::fopen("./results/data/memory_log.csv", "w");
-        if (csv_file) {
-            std::fprintf(csv_file, "timestamp_us,event,size,ptr\n");
-        } else {
-            std::cerr << "CRITICAL ERROR: Cant open ./results/data/memory_log.csv\n";
-        }
+    Logger() 
+        : memoryChannel("./results/data/memory_log.csv", "timestamp_us,event,size,ptr"),
+          graphChannel("./results/data/graph_log.csv", "timestamp_us,event,id1,id2"),
+          textChannel("./results/data/execution_log.txt", nullptr) 
+    {}
 
-        // 2. Файл для информации
-        text_file = std::fopen("./results/data/execution_log.txt", "w");
-        if (!text_file) {
-            std::cerr << "CRITICAL ERROR: Cant open ./results/data/execution_log.txt\n";
-        }
-    }
+    ~Logger() = default;
 
-    ~Logger() {
-        if (csv_file) std::fclose(csv_file);
-        if (text_file) std::fclose(text_file);
-    }
-
-    long long getCurrentTimeUs() {
-        auto now = std::chrono::steady_clock::now();
-        return std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-    }
-
-    std::FILE* csv_file = nullptr;
-    std::FILE* text_file = nullptr;
-    
-    std::mutex csv_mtx;
-    std::mutex text_mtx;
+    // Каналы логирования
+    LogChannel memoryChannel;
+    LogChannel graphChannel;
+    LogChannel textChannel;
 };
