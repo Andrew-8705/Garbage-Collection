@@ -1,7 +1,9 @@
+#pragma once
+
 #include <cstddef>
 #include <string>
-#include <new>
 #include <iostream>
+#include <utility>
 
 
 namespace gc {
@@ -28,10 +30,39 @@ public:
     virtual std::string name() const = 0; // возвращение имени конкретной реализации
     virtual void printSummary() const; // вывод сводки
 
+    // --- Глобальный доступ --- 
+    static MemoryManager* getInstance();
+    static void setInstance(MemoryManager* gc);
+
     // --- Журналирование ---
     virtual void onAllocation(std::size_t size) {}
     virtual void onDeallocation() {}
     virtual void onCollectionStart() {}
     virtual void onCollectionEnd(double durationMs) {}
 };
+
+template <typename T, typename... Args>
+T* make(Args&&... args) {
+    MemoryManager* gc = MemoryManager::getInstance();
+    if (!gc) {
+        throw std::runtime_error("GC not initialized");
+    }
+    
+    // 1. Выделяем память через GC
+    void* ptr = gc->allocate(sizeof(T));
+    
+    // 2. Вызываем конструктор (Placement New)
+    return new(ptr) T(std::forward<Args>(args)...);
+}
+
+template <typename T>
+void destroy(T* ptr) {
+    if (!ptr) return;
+    
+    // 1. Вызываем деструктор
+    ptr->~T();
+    
+    // 2. Освобождаем память
+    MemoryManager::getInstance()->deallocate(ptr);
+}
 }
