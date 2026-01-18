@@ -7,5 +7,6 @@ public:
     virtual void grow() = 0;
     virtual void shrink() = 0;
     virtual void access() = 0;
+    virtual const char* getName() const = 0;
 };
 }
