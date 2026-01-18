@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # --- Настройки ---
 option(STL_BENCH "Build the standard library (STL) workload." ON)
+option(GRAPH_BENCH "Build the random graph workload." ON)
 option(ENABLE_BDWGC "Enable Boehm-GC integration." ON)
 
 # ==============================================================================
@@ -66,4 +67,13 @@ endif()
 if(STL_BENCH)
     add_executable(stl_bench src/benchmarking/stl_bench.cpp)
     target_link_libraries(stl_bench PRIVATE gc_core)
+endif()
+
+# ==============================================================================
+# 3. Бенчмарк Случайного Графа
+# ==============================================================================
+
+if (GRAPH_BENCH)
+    add_executable(graph_bench src/benchmarking/graph_bench.cpp)
+    target_link_libraries(graph_bench PRIVATE gc_core)
 endif()
