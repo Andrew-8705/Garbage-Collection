@@ -18,9 +18,8 @@ public:
     MemoryStats getStats() const override;
     std::string name() const override;
 
-    // Для Boehm эти методы пустые, так как он сам следит за ссылками
-    // void addRef(void* ptr) override {}
-    // void release(void* ptr) override {}
+    void addRef(void* ptr) override {}
+    void release(void* ptr) override {}
 };
 
 }

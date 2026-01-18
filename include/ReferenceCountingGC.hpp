@@ -28,8 +28,8 @@ public:
     MemoryStats getStats() const override;
     std::string name() const override;
 
-    void addRef(void* ptr); // override
-    void release(void* ptr); // override
+    void addRef(void* ptr) override;
+    void release(void* ptr) override;
 };
 
 } // namespace gc

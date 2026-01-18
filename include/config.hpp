@@ -30,6 +30,10 @@ public:
     virtual std::string name() const = 0; // возвращение имени конкретной реализации
     virtual void printSummary() const; // вывод сводки
 
+    // --- Методы для Reference Counting ---
+    virtual void addRef(void* ptr) {}
+    virtual void release(void* ptr) {}
+
     // --- Глобальный доступ --- 
     static MemoryManager* getInstance();
     static void setInstance(MemoryManager* gc);

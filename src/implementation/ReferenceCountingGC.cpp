@@ -1,7 +1,7 @@
-#include "ReferenceCountingGC.hpp" // Обязательно подключаем свой заголовок
+#include "ReferenceCountingGC.hpp"
 #include "logger.hpp"
-#include <cstdlib> // для malloc/free
-#include <iostream> // на всякий случай
+#include <cstdlib>
+#include <iostream>
 
 namespace gc {
 
