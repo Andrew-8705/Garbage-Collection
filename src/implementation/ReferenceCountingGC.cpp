@@ -1,56 +1,106 @@
-
-#include "config.hpp"
-#include <unordered_map>
+#include "ReferenceCountingGC.hpp" // Обязательно подключаем свой заголовок
+#include "logger.hpp"
+#include <cstdlib> // для malloc/free
+#include <iostream> // на всякий случай
 
 namespace gc {
 
-class ReferenceCountingGC : public MemoryManager {
-private:
+void* ReferenceCountingGC::allocate(size_t size) {
+    // 1. Системная аллокация
+    void* ptr = std::malloc(size);
+    if (!ptr) {
+        throw std::bad_alloc();
+    }
 
-    template <typename T>
-    class MallocAllocator {
-    public:
-        MallocAllocator() noexcept = default;
+    // 2. Регистрация в карте (под мьютексом)
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        
+        objects_map[ptr] = {0, size};
 
-        template <typename U>
-        MallocAllocator(const MallocAllocator<U>&) noexcept {}
+        stats.allocatedBytes += size;
+        stats.liveBytes += size;
+        stats.totalAllocations++;
+    }
 
-        T* allocate(size_t n) {
+    // 3. Логирование
+    Logger::getInstance().logAlloc(size, ptr);
+    return ptr;
+}
 
-            void* ptr = malloc(n * sizeof(T));
-            if (!ptr) {
-                throw std::bad_alloc();
+void ReferenceCountingGC::deallocate(void* ptr) {
+    if (ptr == nullptr) return;
+
+    size_t size_freed = 0;
+
+    // 1. Удаление из карты
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        auto it = objects_map.find(ptr);
+        if (it != objects_map.end()) {
+            size_freed = it->second.size;
+            
+            // Обновление статистики
+            if (stats.liveBytes >= size_freed) stats.liveBytes -= size_freed;
+            stats.freedBytes += size_freed;
+            
+            objects_map.erase(it);
+        } else {
+            // Попытка удалить чужой указатель
+            return; 
+        }
+    }
+
+    // 2. Системное освобождение
+    std::free(ptr);
+    Logger::getInstance().logFree(ptr);
+}
+
+void ReferenceCountingGC::collect() {
+    // Logger::getInstance().log("GC: Collection requested (No-op for RC)");
+}
+
+MemoryStats ReferenceCountingGC::getStats() const {
+    std::lock_guard<std::mutex> lock(mtx);
+    return stats;
+}
+
+std::string ReferenceCountingGC::name() const {
+    return "ReferenceCountingGC (Map-based)";
+}
+
+void ReferenceCountingGC::addRef(void* ptr) {
+    if (!ptr) return;
+    std::lock_guard<std::mutex> lock(mtx);
+    auto it = objects_map.find(ptr);
+    if (it != objects_map.end()) {
+        it->second.ref_count++;
+    }
+}
+
+void ReferenceCountingGC::release(void* ptr) {
+    if (!ptr) return;
+    
+    bool should_delete = false;
+    
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        auto it = objects_map.find(ptr);
+        if (it != objects_map.end()) {
+            if (it->second.ref_count > 0) {
+                it->second.ref_count--;
             }
-            return static_cast<T*>(ptr);
+            
+            if (it->second.ref_count == 0) {
+                should_delete = true;
+            }
         }
-
-        void deallocate(T* ptr, size_t) noexcept {
-            free(ptr);
-        }
-
-        template <typename U>
-        bool operator==(const MallocAllocator<U>&) const noexcept { return true; }
-
-        template <typename U>
-        bool operator!=(const MallocAllocator<U>&) const noexcept { return false; }
-    };
-
-    std::unordered_map<
-        void*,
-        size_t,
-        std::hash<void*>,
-        std::equal_to<void*>,
-        MallocAllocator<std::pair<void* const, size_t>>
-    > ref_count;
-
-    void* allocate(std::size_t size) override {
-
     }
 
-    void deallocate(void* ptr) {
-        if (ptr == nullptr) return;
-
+    // Удаляем БЕЗ блокировки mtx (так как deallocate сам возьмет блокировку)
+    if (should_delete) {
+        deallocate(ptr);
     }
-};
+}
 
-}   
+} // namespace gc
