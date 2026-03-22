@@ -1,5 +1,5 @@
-#include "BoehmGCAdapter.hpp"
-#include "logger.hpp"
+#include "../../include/impl/BoehmGCAdapter.hpp"
+#include "../../include/utils/logger.hpp"
 #include <gc.h> // API библиотеки Boehm
 
 namespace gc {

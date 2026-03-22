@@ -8,13 +8,13 @@
 #include <chrono>
 
 #include "abstract_container.hpp"
-#include "gc_allocator.hpp"
-#include "logger.hpp"
+#include "../../include/core/gc_allocator.hpp"
+#include "../../include/utils/logger.hpp"
 
-#include "ReferenceCountingGC.hpp"
+#include "../../include/impl/ReferenceCountingGC.hpp"
 
 #ifdef HAS_BDWGC
-#include "BoehmGCAdapter.hpp"
+#include "../../include/impl/BoehmGCAdapter.hpp"
 #endif
 
 

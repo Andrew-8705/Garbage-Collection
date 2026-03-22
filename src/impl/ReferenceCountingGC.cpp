@@ -1,5 +1,5 @@
-#include "ReferenceCountingGC.hpp"
-#include "logger.hpp"
+#include "../../include/impl/ReferenceCountingGC.hpp"
+#include "../../include/utils/logger.hpp"
 #include <cstdlib>
 #include <iostream>
 

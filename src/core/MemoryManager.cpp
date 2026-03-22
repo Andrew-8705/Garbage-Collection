@@ -1,4 +1,4 @@
-#include "config.hpp"
+#include "../../include/core/config.hpp"
 
 namespace gc {
 

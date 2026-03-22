@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config.hpp"
+#include "../core/config.hpp"
 #include <unordered_map>
 #include <mutex>
 #include <string>

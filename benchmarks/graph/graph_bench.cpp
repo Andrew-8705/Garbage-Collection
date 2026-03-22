@@ -3,25 +3,25 @@
 #include <random>
 #include <chrono>
 
-#include "config.hpp"
-#include "logger.hpp"
-#include "gc_allocator.hpp"
-#include "ReferenceCountingGC.hpp"
+#include "../../include/core/config.hpp"
+#include "../../include/utils/logger.hpp"
+#include "../../include/core/gc_allocator.hpp"
+#include "../../include/impl/ReferenceCountingGC.hpp"
 
 #ifdef HAS_BDWGC
-#include "BoehmGCAdapter.hpp"
+#include "../../include/impl/BoehmGCAdapter.hpp"
 #endif
 
 template <typename T>
 using GCVector = std::vector<T, gc::Allocator<T>>;
 
 #ifdef HAS_BDWGC
-    #include "config.hpp"
+    #include "../../include/core/config.hpp"
     template <typename T> using GCPtr = T*;
     template <typename T, typename... Args>
     GCPtr<T> create_node(Args&&... args) { return gc::make<T>(std::forward<Args>(args)...); }
 #else
-    #include "rc_ptr.hpp"
+    #include "../../include/core/rc_ptr.hpp"
     template <typename T> using GCPtr = gc::RcPtr<T>;
     template <typename T, typename... Args>
     GCPtr<T> create_node(Args&&... args) { return gc::make_ptr<T>(std::forward<Args>(args)...); }
