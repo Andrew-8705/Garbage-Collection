@@ -83,6 +83,11 @@ public:
         memoryChannel.write("FREE,0,%p", ptr);
     }
 
+    void logHeapState(size_t live_bytes) {
+        // Формат: TIMESTAMP, HEAP, live_bytes, 0x0
+        memoryChannel.write("HEAP,%zu,0x0", live_bytes);
+    }
+
     // --- Канал 2: Граф (CSV) ---
     void logGraphEvent(const char* event, int id1, int id2 = -1) {
         graphChannel.write("%s,%d,%d", event, id1, id2);
