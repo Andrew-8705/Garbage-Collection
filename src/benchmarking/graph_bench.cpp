@@ -12,6 +12,8 @@
 #include "BoehmGCAdapter.hpp"
 #endif
 
+template <typename T>
+using GCVector = std::vector<T, gc::Allocator<T>>;
 
 #ifdef HAS_BDWGC
     #include "config.hpp"
@@ -38,7 +40,8 @@ struct GraphNode {
 
 // --- БЕНЧМАРК ---
 class GraphWorkload {
-    std::vector<GCPtr<GraphNode>> roots;
+    //std::vector<GCPtr<GraphNode>> roots;
+    GCVector<GCPtr<GraphNode>> roots; 
     std::mt19937 gen;
     int next_id = 0;
 
@@ -152,8 +155,18 @@ public:
         auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < OPERATIONS; ++i) {
             step(i);
-            if (i % 100 == 0) gc::MemoryManager::getInstance()->collect();
+            //if (i % 10 == 0) {
+                //gc::MemoryManager::getInstance()->collect(); 
+                size_t live = gc::MemoryManager::getInstance()->getStats().liveBytes;
+                Logger::getInstance().logHeapState(live);
+            //}
         }
+
+        roots.clear();
+        gc::MemoryManager::getInstance()->collect();
+        size_t final_live = gc::MemoryManager::getInstance()->getStats().liveBytes;
+        Logger::getInstance().logHeapState(final_live);
+
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         Logger::getInstance().log("Benchmark Finished");
