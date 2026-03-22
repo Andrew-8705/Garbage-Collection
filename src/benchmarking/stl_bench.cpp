@@ -180,20 +180,23 @@ public:
 
 
 int main() {
-    static gc::ReferenceCountingGC rc_gc_instance;
+    #ifdef HAS_BDWGC
+        static gc::BoehmGCAdapter gc_instance;
+        std::cout << "Strategy: Boehm-Demers-Weiser GC\n";
+    #else
+        static gc::ReferenceCountingGC gc_instance;
+        std::cout << "Strategy: Reference Counting\n";
+    #endif
 
-// #ifdef HAS_BDWGC
-//     static gc::BoehmGCAdapter gc_instance;
-// #else
-//     static gc::ReferenceCountingGC gc_instance;
-//     std::cout << "[WARNING] Boehm GC not compiled, falling back to RC.\n";
-// #endif
-    gc::MemoryManager::setInstance(&rc_gc_instance);
+    gc::MemoryManager::setInstance(&gc_instance);
+
 
     Logger::getInstance();
-    std::srand(std::time(0));
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    // std::srand(std::time(0));
+    // std::random_device rd;
+    // std::mt19937 gen(rd());
+    std::srand(42);
+    std::mt19937 gen(42);
     std::uniform_int_distribution<> pool_dist(0, POOL_SIZE - 1);
     std::uniform_int_distribution<> op_dist(0, 2); // 0:grow, 1:shrink, 2:access
     std::uniform_int_distribution<> type_dist(0, 4); // 0:Vector, 1:List, 2:Map, 3:UnorderedMap, 4:String
