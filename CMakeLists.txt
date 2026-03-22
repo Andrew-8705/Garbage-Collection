@@ -16,17 +16,16 @@ option(ENABLE_BDWGC "Enable Boehm-GC integration." ON)
 
 set(CORE_SOURCES
     src/core/MemoryManager.cpp
-    src/implementation/ReferenceCountingGC.cpp
+    src/impl/ReferenceCountingGC.cpp
+    # src/utils/logger.cpp 
 )
 
-# Если включен Boehm, добавляем его исходник адаптера
 if(ENABLE_BDWGC)
-    list(APPEND CORE_SOURCES src/implementation/BoehmGCAdapter.cpp)
+    list(APPEND CORE_SOURCES src/impl/BoehmGCAdapter.cpp)
 endif()
 
 add_library(gc_core STATIC ${CORE_SOURCES})
 
-# Include пути
 target_include_directories(gc_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
@@ -35,11 +34,9 @@ target_include_directories(gc_core PUBLIC
 if(ENABLE_BDWGC)
     message(STATUS "Boehm-GC is ENABLED.")
     
-    # Путь к папке, где мы собрали bdwgc (Шаг 1)
     set(BDWGC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/bdwgc")
     set(BDWGC_LIB_DIR "${BDWGC_ROOT}/build") 
     
-    # Ищем libgc.a
     find_library(BDWGC_LIB 
         NAMES gc libgc 
         PATHS ${BDWGC_LIB_DIR} 
@@ -47,33 +44,26 @@ if(ENABLE_BDWGC)
     )
     
     if(NOT BDWGC_LIB)
-        message(FATAL_ERROR "Could not find libgc.a in ${BDWGC_LIB_DIR}. Did you run 'make' inside third_party/bdwgc/build?")
+        message(FATAL_ERROR "Could not find libgc.a in ${BDWGC_LIB_DIR}")
     endif()
 
-    # Добавляем хедеры Boehm в пути поиска
     target_include_directories(gc_core PUBLIC "${BDWGC_ROOT}/include")
-    
-    # Линкуем библиотеку и pthread (нужен для GC)
     target_link_libraries(gc_core PUBLIC ${BDWGC_LIB} pthread)
-    
-    # Определяем макрос, чтобы в коде можно было делать #ifdef HAS_BDWGC
     target_compile_definitions(gc_core PUBLIC HAS_BDWGC)
 endif()
 
 # ==============================================================================
-# 2. Бенчмарк STL
+# 2. Сборка бенчмарков
 # ==============================================================================
 
 if(STL_BENCH)
-    add_executable(stl_bench src/benchmarking/stl_bench.cpp)
+    message(STATUS "Configuring STL Benchmark")
+    add_executable(stl_bench benchmarks/stl/stl_bench.cpp)
     target_link_libraries(stl_bench PRIVATE gc_core)
 endif()
 
-# ==============================================================================
-# 3. Бенчмарк Случайного Графа
-# ==============================================================================
-
 if (GRAPH_BENCH)
-    add_executable(graph_bench src/benchmarking/graph_bench.cpp)
+    message(STATUS "Configuring Graph Benchmark")
+    add_executable(graph_bench benchmarks/graph/graph_bench.cpp)
     target_link_libraries(graph_bench PRIVATE gc_core)
 endif()
