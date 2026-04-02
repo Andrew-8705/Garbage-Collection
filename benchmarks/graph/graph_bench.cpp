@@ -46,7 +46,8 @@ class GraphWorkload {
     int next_id = 0;
 
 public:
-    GraphWorkload() : gen(std::random_device{}()) {}
+    //GraphWorkload() : gen(std::random_device{}()) {}
+    GraphWorkload() : gen(42) {}
 
     void initialize() {
         Logger::getInstance().log("Initializing Graph...");
