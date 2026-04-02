@@ -266,6 +266,15 @@ int main() {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
     std::cout << "\nWorkload finished. Total time: " << duration.count() << " ms." << std::endl;
+    // gc::MemoryManager::getInstance()->printSummary();
+
+    std::cout << "\n[1] Stats BEFORE clearing the pool:\n";
+    gc::MemoryManager::getInstance()->printSummary();
+
+    pool.clear();
+    gc::MemoryManager::getInstance()->collect(); 
+
+    std::cout << "\n[2] Stats AFTER clearing the pool:\n";
     gc::MemoryManager::getInstance()->printSummary();
 
     return 0;
