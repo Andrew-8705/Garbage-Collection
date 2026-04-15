@@ -25,6 +25,8 @@
     #define FrameMark
 #endif
 
+#define MEASURE_PHASES 
+
 const int POOL_SIZE = 500;       // сколько контейнеров будет создано
 const int CHUNK_SIZE = 200;      // сколько элементов будет добавлено в контейнер
 const int TOTAL_OPERATIONS = 500'000; // сколько операций для выбранного контейнера будет выполнено
@@ -255,7 +257,9 @@ int main() {
     
     std::cout << "--- STL WORKLOAD BENCHMARK ---" << std::endl;
 
-    auto start = std::chrono::high_resolution_clock::now();
+#ifdef MEASURE_PHASES
+    auto start_work = std::chrono::high_resolution_clock::now();
+#endif
 
     // 2. Главный цикл рандомизированных операций
     for (int i = 0; i < TOTAL_OPERATIONS; i++) {
@@ -281,14 +285,17 @@ int main() {
         // Logger::getInstance().logFormatted("Op #%d: [%s] %s at index %d",  i, target->getName(), op_name, target_idx);
     }
 
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "\nWorkload finished. Total time: " << duration.count() << " ms." << std::endl;
-    // gc::MemoryManager::getInstance()->printSummary();
+#ifdef MEASURE_PHASES
+    auto end_work = std::chrono::high_resolution_clock::now();
+    auto duration_work = std::chrono::duration_cast<std::chrono::milliseconds>(end_work - start_work);
+#endif
 
     std::cout << "\n[1] Stats BEFORE clearing the pool:\n";
     gc::MemoryManager::getInstance()->printSummary();
+
+#ifdef MEASURE_PHASES
+    auto start_clean = std::chrono::high_resolution_clock::now();
+#endif
 
     {
         ZoneScopedN("Clear_Pool_And_Collect");
@@ -301,8 +308,22 @@ int main() {
         gc::MemoryManager::getInstance()->collect(); 
     }
 
+#ifdef MEASURE_PHASES
+    auto end_clean = std::chrono::high_resolution_clock::now();
+    auto duration_clean = std::chrono::duration_cast<std::chrono::milliseconds>(end_clean - start_clean);
+#endif
+
     std::cout << "\n[2] Stats AFTER clearing the pool:\n";
     gc::MemoryManager::getInstance()->printSummary();
+
+#ifdef MEASURE_PHASES
+    std::cout << "\n=== PERFORMANCE REPORT ===" << std::endl;
+    std::cout << "Workload Phase: " << duration_work.count() << " ms" << std::endl;
+    std::cout << "Cleanup Phase:  " << duration_clean.count() << " ms" << std::endl;
+    std::cout << "Total Time:     " << (duration_work.count() + duration_clean.count()) << " ms" << std::endl;
+    std::cout << "Throughput:     " << (TOTAL_OPERATIONS / (duration_work.count() / 1000.0)) << " ops/sec" << std::endl;
+    std::cout << "==========================" << std::endl;
+#endif
 
     return 0;
 }
