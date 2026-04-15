@@ -25,8 +25,6 @@
     #define FrameMark
 #endif
 
-#define MEASURE_PHASES 
-
 const int POOL_SIZE = 500;       // сколько контейнеров будет создано
 const int CHUNK_SIZE = 200;      // сколько элементов будет добавлено в контейнер
 const int TOTAL_OPERATIONS = 500'000; // сколько операций для выбранного контейнера будет выполнено

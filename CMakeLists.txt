@@ -11,6 +11,7 @@ option(GRAPH_BENCH "Build the random graph workload." ON)
 option(ENABLE_BDWGC "Enable Boehm-GC integration." ON)
 option(ENABLE_TRACY "Enable Tracy profiler integration." OFF)
 option(ENABLE_LOGGING "Enable detailed CSV and TXT logging." ON)
+option(MEASURE_PHASES "Enable phase measurement profiling" ON)
 
 find_package(Threads REQUIRED)
 
@@ -49,6 +50,14 @@ if(ENABLE_LOGGING)
     target_compile_definitions(gc_core PUBLIC GC_ENABLE_LOGGING)
 else()
     message(STATUS "Logging is DISABLED.")
+endif()
+
+# --- Настройка замеров времени ---
+if(MEASURE_PHASES)
+    message(STATUS "Phase measurement is ENABLED.")
+    target_compile_definitions(gc_core PUBLIC MEASURE_PHASES)
+else()
+    message(STATUS "Phase measurement is DISABLED.")
 endif()
 
 # --- Настройка Tracy ---
