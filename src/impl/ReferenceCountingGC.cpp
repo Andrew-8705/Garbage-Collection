@@ -3,9 +3,21 @@
 #include <cstdlib>
 #include <iostream>
 
+#ifdef TRACY_ENABLE
+    #include <tracy/Tracy.hpp>
+#else
+    #define TracyAllocN(ptr, size, name)
+    #define TracyFreeN(ptr, name)
+    #define TracyPlot(name, val)
+    #define ZoneScoped
+    #define ZoneValue(x)
+#endif
 namespace gc {
 
 void* ReferenceCountingGC::allocate(size_t size) {
+    ZoneScoped;
+    ZoneValue(size);
+
     // 1. Системная аллокация
     void* ptr = std::malloc(size);
     if (!ptr) {
@@ -23,12 +35,16 @@ void* ReferenceCountingGC::allocate(size_t size) {
         stats.totalAllocations++;
     }
 
+    TracyAllocN(ptr, size, "ReferenceCountingGC");
+    TracyPlot("Live Memory (RC)", (int64_t)stats.liveBytes);
+
     // 3. Логирование
     Logger::getInstance().logAlloc(size, ptr);
     return ptr;
 }
 
 void ReferenceCountingGC::deallocate(void* ptr) {
+    ZoneScoped;
     if (ptr == nullptr) return;
 
     size_t size_freed = 0;
@@ -50,6 +66,9 @@ void ReferenceCountingGC::deallocate(void* ptr) {
             return; 
         }
     }
+
+    TracyFreeN(ptr, "ReferenceCountingGC");
+    TracyPlot("Live Memory (RC)", (int64_t)stats.liveBytes);
 
     // 2. Системное освобождение
     std::free(ptr);
