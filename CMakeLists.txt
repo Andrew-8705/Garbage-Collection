@@ -9,6 +9,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(STL_BENCH "Build the standard library (STL) workload." ON)
 option(GRAPH_BENCH "Build the random graph workload." ON)
 option(ENABLE_BDWGC "Enable Boehm-GC integration." ON)
+option(ENABLE_TRACY "Enable Tracy profiler integration." OFF)
+option(ENABLE_LOGGING "Enable detailed CSV and TXT logging." ON)
+
+find_package(Threads REQUIRED)
 
 # ==============================================================================
 # 1. Библиотека ядра (GC Core)
@@ -24,13 +28,40 @@ if(ENABLE_BDWGC)
     list(APPEND CORE_SOURCES src/impl/BoehmGCAdapter.cpp)
 endif()
 
+if(ENABLE_TRACY)
+    message(STATUS "Tracy Profiler is ENABLED.")
+    set(TRACY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tracy/public")
+    
+    list(APPEND CORE_SOURCES "${TRACY_DIR}/TracyClient.cpp")
+endif()
+
 add_library(gc_core STATIC ${CORE_SOURCES})
 
 target_include_directories(gc_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Настройка линковки Boehm GC
+target_link_libraries(gc_core PUBLIC Threads::Threads)
+
+# --- Настройка логирования ---
+if(ENABLE_LOGGING)
+    message(STATUS "Logging is ENABLED.")
+    target_compile_definitions(gc_core PUBLIC GC_ENABLE_LOGGING)
+else()
+    message(STATUS "Logging is DISABLED.")
+endif()
+
+# --- Настройка Tracy ---
+if(ENABLE_TRACY)
+    target_include_directories(gc_core PUBLIC "${TRACY_DIR}")
+    target_compile_definitions(gc_core PUBLIC TRACY_ENABLE) 
+    
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(gc_core PUBLIC dl)
+    endif()
+endif()
+
+# --- Настройка Boehm GC ---
 if(ENABLE_BDWGC)
     message(STATUS "Boehm-GC is ENABLED.")
     
