@@ -10,6 +10,7 @@
 class LogChannel {
 public:
     LogChannel(const char* filename, const char* header = nullptr) {
+#ifdef GC_ENABLE_LOGGING
         file = std::fopen(filename, "w");
         if (file) {
             if (header) {
@@ -19,13 +20,17 @@ public:
         } else {
             std::cerr << "[Logger] CRITICAL ERROR: Cant open " << filename << "\n";
         }
+#endif
     }
 
     ~LogChannel() {
+#ifdef GC_ENABLE_LOGGING
         if (file) std::fclose(file);
+#endif
     }
 
     void write(const char* format, ...) {
+#ifdef GC_ENABLE_LOGGING
         std::lock_guard<std::mutex> lock(mtx);
         if (!file) return;
 
@@ -40,10 +45,12 @@ public:
         va_end(args);
 
         std::fprintf(file, "\n");
+#endif
     }
     
 
     void writeText(const char* format, ...) {
+#ifdef GC_ENABLE_LOGGING
         std::lock_guard<std::mutex> lock(mtx);
         if (!file) return;
 
@@ -59,6 +66,7 @@ public:
 
         std::fprintf(file, "\n");
         std::fflush(file);
+#endif
     }
 
 private:
@@ -99,6 +107,7 @@ public:
     }
 
     void logFormatted(const char* format, ...) {
+#ifdef GC_ENABLE_LOGGING
         char buffer[1024];
         va_list args;
         va_start(args, format);
@@ -106,6 +115,7 @@ public:
         va_end(args);
         
         textChannel.writeText("%s", buffer);
+#endif
     }
 
     Logger(const Logger&) = delete;
