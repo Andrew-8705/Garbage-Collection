@@ -12,24 +12,27 @@
     #define ZoneScoped
     #define ZoneValue(x)
 #endif
+
+#ifdef GC_THREAD_SAFE
+    #define GC_LOCK_GUARD(m) std::lock_guard<std::mutex> lock(m)
+#else
+    #define GC_LOCK_GUARD(m)
+#endif
+
 namespace gc {
 
 void* ReferenceCountingGC::allocate(size_t size) {
     ZoneScoped;
     ZoneValue(size);
 
-    // 1. Системная аллокация
     void* ptr = std::malloc(size);
     if (!ptr) {
         throw std::bad_alloc();
     }
 
-    // 2. Регистрация в карте (под мьютексом)
     {
-        std::lock_guard<std::mutex> lock(mtx);
-        
+        GC_LOCK_GUARD(mtx);
         objects_map[ptr] = {0, size};
-
         stats.allocatedBytes += size;
         stats.liveBytes += size;
         stats.totalAllocations++;
@@ -38,7 +41,6 @@ void* ReferenceCountingGC::allocate(size_t size) {
     TracyAllocN(ptr, size, "ReferenceCountingGC");
     TracyPlot("Live Memory (RC)", (int64_t)stats.liveBytes);
 
-    // 3. Логирование
     Logger::getInstance().logAlloc(size, ptr);
     return ptr;
 }
@@ -49,14 +51,12 @@ void ReferenceCountingGC::deallocate(void* ptr) {
 
     size_t size_freed = 0;
 
-    // 1. Удаление из карты
     {
-        std::lock_guard<std::mutex> lock(mtx);
+         GC_LOCK_GUARD(mtx);
         auto it = objects_map.find(ptr);
         if (it != objects_map.end()) {
             size_freed = it->second.size;
             
-            // Обновление статистики
             if (stats.liveBytes >= size_freed) stats.liveBytes -= size_freed;
             stats.freedBytes += size_freed;
             
@@ -70,7 +70,6 @@ void ReferenceCountingGC::deallocate(void* ptr) {
     TracyFreeN(ptr, "ReferenceCountingGC");
     TracyPlot("Live Memory (RC)", (int64_t)stats.liveBytes);
 
-    // 2. Системное освобождение
     std::free(ptr);
     Logger::getInstance().logFree(ptr);
 }
@@ -80,17 +79,22 @@ void ReferenceCountingGC::collect() {
 }
 
 MemoryStats ReferenceCountingGC::getStats() const {
-    std::lock_guard<std::mutex> lock(mtx);
+    GC_LOCK_GUARD(mtx);
     return stats;
 }
 
 std::string ReferenceCountingGC::name() const {
-    return "ReferenceCountingGC (Map-based)";
+    return "ReferenceCountingGC" 
+#ifdef GC_THREAD_SAFE
+     " (Multi-threaded)";
+#else
+     " (Single-threaded)";
+#endif
 }
 
 void ReferenceCountingGC::addRef(void* ptr) {
     if (!ptr) return;
-    std::lock_guard<std::mutex> lock(mtx);
+    GC_LOCK_GUARD(mtx);
     auto it = objects_map.find(ptr);
     if (it != objects_map.end()) {
         it->second.ref_count++;
@@ -103,7 +107,7 @@ void ReferenceCountingGC::release(void* ptr) {
     bool should_delete = false;
     
     {
-        std::lock_guard<std::mutex> lock(mtx);
+        GC_LOCK_GUARD(mtx);
         auto it = objects_map.find(ptr);
         if (it != objects_map.end()) {
             if (it->second.ref_count > 0) {
@@ -111,12 +115,11 @@ void ReferenceCountingGC::release(void* ptr) {
             }
             
             if (it->second.ref_count == 0) {
-                should_delete = true;
+                should_delete = true;   
             }
         }
     }
 
-    // Удаляем БЕЗ блокировки mtx (так как deallocate сам возьмет блокировку)
     if (should_delete) {
         deallocate(ptr);
     }

@@ -16,8 +16,11 @@ private:
     };
 
     std::unordered_map<void*, ObjectInfo> objects_map;
-    mutable std::mutex mtx;
     MemoryStats stats;
+
+#ifdef GC_THREAD_SAFE
+    mutable std::mutex mtx;
+#endif
 
 public:
 
