@@ -12,6 +12,8 @@ option(ENABLE_BDWGC "Enable Boehm-GC integration." ON)
 option(ENABLE_TRACY "Enable Tracy profiler integration." OFF)
 option(ENABLE_LOGGING "Enable detailed CSV and TXT logging." ON)
 option(MEASURE_PHASES "Enable phase measurement profiling" ON)
+option(ENABLE_MULTITHREADING "Enable thread-safety (mutexes) in GC" OFF)
+
 
 find_package(Threads REQUIRED)
 
@@ -58,6 +60,14 @@ if(MEASURE_PHASES)
     target_compile_definitions(gc_core PUBLIC MEASURE_PHASES)
 else()
     message(STATUS "Phase measurement is DISABLED.")
+endif()
+
+# --- Настройка безопасной многопоточности ---
+if(ENABLE_MULTITHREADING)
+    add_definitions(-DGC_THREAD_SAFE)
+    message(STATUS "GC Thread-safety: ENABLED")
+else()
+    message(STATUS "GC Thread-safety: DISABLED (Single-threaded mode)")
 endif()
 
 # --- Настройка Tracy ---
