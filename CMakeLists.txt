@@ -35,7 +35,10 @@ if(ENABLE_TRACY)
     message(STATUS "Tracy Profiler is ENABLED.")
     set(TRACY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tracy/public")
     
-    list(APPEND CORE_SOURCES "${TRACY_DIR}/TracyClient.cpp")
+    list(APPEND CORE_SOURCES 
+        "${TRACY_DIR}/TracyClient.cpp"
+        src/utils/tracy_memory.cpp 
+    )
 endif()
 
 add_library(gc_core STATIC ${CORE_SOURCES})
